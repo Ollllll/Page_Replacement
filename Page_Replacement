@@ -1,0 +1,175 @@
+import tkinter as tk
+
+PAGE_REPLACEMENT_ALGORITHMS = ['OPT', 'FIFO', 'LRU']
+
+class Application(tk.Tk):
+    def __init__(self, PAGE_REPLACEMENT_ALGORITHMS=None, *args, **kwargs):
+        tk.Tk.__init__(self, *args, **kwargs)
+        self.title("页面置换模拟器")
+        self.geometry("500x1000")
+
+        # Create widgets
+        self.header_label = tk.Label(text="页面置换模拟器", font=("TkDefaultFont", 16))
+        self.header_label.pack(pady=30)
+        self.header_label.config(font=("TkDefaultFont", 20, "bold"))
+
+        self.algorithm_label = tk.Label(text="选择算法:", font=("TkDefaultFont", 12))
+        self.algorithm_label.pack(pady=5)
+
+        self.algorithm_var = tk.StringVar()
+        self.algorithm_var.set(PAGE_REPLACEMENT_ALGORITHMS[0])
+        self.algorithm_dropdown = tk.OptionMenu(self, self.algorithm_var, *PAGE_REPLACEMENT_ALGORITHMS)
+        self.algorithm_dropdown.pack(pady=5)
+
+        self.page_frames_label = tk.Label(text="物理块号:", font=("TkDefaultFont", 12))
+        self.page_frames_label.pack(pady=5)
+
+        self.page_frames_entry = tk.Entry(width=10)
+        self.page_frames_entry.pack(pady=5)
+
+        self.page_sequence_label = tk.Label(text="访问页号序列:", font=("TkDefaultFont", 12))
+        self.page_sequence_label.pack(pady=5)
+
+        self.page_sequence_entry = tk.Entry(width=50)
+        self.page_sequence_entry.pack(pady=5)
+
+        self.simulate_button = tk.Button(text="计算", command=self.simulate)
+        self.simulate_button.pack(pady=10)
+
+        self.output_label = tk.Label(text="", font=("TkDefaultFont", 12))
+        self.output_label.pack(pady=5)
+
+        self.page_order = tk.Label(text="", font=("TkDefaultFont", 12))
+        self.page_order.pack(pady=5)
+
+    def simulate(self):
+        algorithm = self.algorithm_var.get()
+        page_frames = int(self.page_frames_entry.get())
+        page_sequence = list(map(int, self.page_sequence_entry.get().split()))
+
+        # Call appropriate page replacement function based on selected algorithm
+        if algorithm == 'OPT':
+            page_faults, page_order = self.opt_page_replacement(page_frames, page_sequence)
+        elif algorithm == 'FIFO':
+            page_faults, page_order = self.fifo_page_replacement(page_frames, page_sequence)
+        elif algorithm == 'LRU':
+            page_faults, page_order = self.lru_page_replacement(page_frames, page_sequence)
+
+        page_order_str = '\n'.join([str(item) for item in page_order])
+        self.output_label.config(text=f"缺页次数: {page_faults}，缺页率: {page_faults/len(page_sequence)}\n页面置换顺序：\n{page_order_str}")
+
+    # OPT算法
+    def opt_page_replacement(self,page_frames, page_sequence):
+        # 检查页面块数是否是正整数
+        if not isinstance(page_frames, int) or page_frames <= 0:
+            raise ValueError("页面块数必须是正整数！")
+        # 检查页面序列是否是非空列表
+        if not page_sequence or not isinstance(page_sequence, list):
+            raise ValueError("页面序列必须为非空列表！")
+        # 初始化内存和缺页数量
+        memory = []
+        page_order = []
+        page_faults = 0
+        # 遍历页面序列
+        for page in page_sequence:
+            # 如果页面已在内存中，跳过
+            if page in memory:
+                page_order.append(memory.copy())
+                continue
+            # 如果内存未满，直接添加页面并
+            elif len(memory) < page_frames:
+                memory.append(page)
+            else:
+                # 获取从当前页面到页面序列末尾的页面
+                future_pages = page_sequence[page_sequence.index(page):]
+                # 获取内存中不在未来页面中的页面
+                page_not_in_future = [m for m in memory if m not in future_pages]
+                # 如果存在不在未来页面中的页面
+                if page_not_in_future:
+                    # 删除内存中第一个不在未来页面中的页面
+                    memory.remove(page_not_in_future[0])
+                    memory.append(page)
+                # 否则删除内存中最早加入的页面
+                else:
+                    last_appearance = [page_sequence.index(m, page_sequence.index(page)) for m in memory]
+                    victim = memory[last_appearance.index(max(last_appearance))]
+                    memory.remove(victim)
+                # 添加当前页
+                    memory.append(page)
+            # 缺页数量+1并记录每一次的内存情况
+            page_order.append(memory.copy())
+            page_faults += 1
+        # 返回缺页数量
+        return page_faults, page_order
+
+    # FIFO算法
+    def fifo_page_replacement(self, page_frames, page_sequence):
+        # 检查页面块数是否是正整数
+        if not isinstance(page_frames, int) or page_frames <= 0:
+            raise ValueError("页面块数必须是正整数！")
+        # 检查页面序列是否是非空列表
+        if not page_sequence or not isinstance(page_sequence, list):
+            raise ValueError("页面序列必须为非空列表！")
+        # 初始化内存和缺页数量
+        memory = []
+        page_order = []
+        page_faults = 0
+        # 遍历页面序列
+        for page in page_sequence:
+            # 如果页面已在内存中，直接跳过
+            if page in memory:
+                page_order.append(memory.copy())
+                continue
+            # 如果内存未满，直接添加页面，并且缺页数量+1且记录每一次的内存情况
+            elif len(memory) < page_frames:
+                memory.append(page)
+            # 如果内存已满，需要进行页面替换
+            else:
+                # 从内存中移除最先加入的页面
+                victim = memory.pop(0)
+                # 将新页面添加到内存中
+                memory.append(page)
+            # 缺页数量+1并记录每一次的内存情况
+            page_order.append(memory.copy())
+            page_faults += 1
+        # 返回缺页数量
+        return page_faults, page_order
+
+    # LRU算法
+    def lru_page_replacement(self,page_frames, page_sequence):
+        # 检查页面块数是否是正整数
+        if not isinstance(page_frames, int) or page_frames <= 0:
+            raise ValueError("页面块数必须是正整数！")
+        # 检查页面序列是否是非空列表
+        if not page_sequence or not isinstance(page_sequence, list):
+            raise ValueError("页面序列必须为非空列表！")
+        # 初始化内存和缺页数量
+        memory = []
+        page_order = []
+        page_faults = 0
+        # 遍历页面序列
+        for page in page_sequence:
+            if page in memory:
+                # 如果页面在内存中，移动该页面到最后一个位置
+                memory.pop(memory.index(page))
+                memory.append(page)
+                page_order.append(memory.copy())
+                # 跳过本次循环
+                continue
+            elif len(memory) < page_frames:
+                # 如果内存未满，直接添加页面，并且缺页数量+1
+                memory.append(page)
+            else:
+                # 如果内存已满，移除最早使用的页面，并且添加当前页面，并且缺页数量+1
+                victim = memory.pop(0)
+                memory.append(page)
+            # 缺页数量+1
+            page_order.append(memory.copy())
+            page_faults += 1
+        # 返回缺页数量
+        return page_faults, page_order
+
+if __name__ == "__main__":
+    PAGE_REPLACEMENT_ALGORITHMS = ["OPT", "FIFO", "LRU"]
+    app = Application(PAGE_REPLACEMENT_ALGORITHMS)
+    app.mainloop()
